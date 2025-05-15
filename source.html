@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Color Gradient</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.0/p5.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+            background-color: #000;
+            font-family: 'Arial', sans-serif;
+        }
+        #canvas-container {
+            width: 100%;
+            max-width: 1200px;
+            height: 100vh;
+            margin: 0 auto;
+            display: flex;
+            justify-content: center;
+            position: relative;
+        }
+        #instructions {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: white;
+            text-align: center;
+            background-color: rgba(0,0,0,0.5);
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+    </style>
+
+<base target="_self">
+
+
+    <div id="canvas-container"></div>
+    <div id="instructions">Move your cursor to change colors | Click to create ripples</div>
+
+    <script>
+        let sketch = function(p) {
+            let color1, color2;
+            let rippleSystem = [];
+            let hueRange = 360;
+            let saturationRange = 100;
+            let brightnessRange = 100;
+            let currentMode = 'vibrant';
+            let colorHarmony = 'complementary';
+            let lastMouseX = 0;
+            let lastMouseY = 0;
+
+            p.setup = function() {
+                let canvas = p.createCanvas(p.windowWidth, p.windowHeight);
+                canvas.parent('canvas-container');
+                p.colorMode(p.HSB, 360, 100, 100, 1);
+                p.noStroke();
+                
+                // Initial colors
+                color1 = p.color(0, 100, 100);
+                color2 = p.color(180, 100, 100);
+            };
+
+            p.draw = function() {
+                updateColorsBasedOnMouse();
+                drawGradient();
+                updateAndDrawRipples();
+            };
+
+            function updateColorsBasedOnMouse() {
+                if (p.mouseX !== lastMouseX || p.mouseY !== lastMouseY) {
+                    const normalizedX = p.constrain(p.mouseX / p.width, 0, 1);
+                    const normalizedY = p.constrain(p.mouseY / p.height, 0, 1);
+                    
+                    let h1, s1, b1, h2, s2, b2;
+                    
+                    if (currentMode === 'vibrant') {
+                        s1 = 100;
+                        s2 = 100;
+                    } else {
+                        s1 = 50 + normalizedY * 50;
+                        s2 = 50 + (1 - normalizedY) * 50;
+                    }
+                    
+                    h1 = normalizedX * hueRange;
+                    b1 = 30 + normalizedY * 70;
+                    
+                    switch(colorHarmony) {
+                        case 'complementary':
+                            h2 = (h1 + 180) % 360;
+                            b2 = 100 - b1;
+                            break;
+                        case 'analogous':
+                            h2 = (h1 + 30) % 360;
+                            b2 = b1;
+                            break;
+                        case 'triadic':
+                            h2 = (h1 + 120) % 360;
+                            b2 = b1;
+                            break;
+                        case 'monochromatic':
+                            h2 = h1;
+                            b2 = 100 - b1;
+                            break;
+                        default:
+                            h2 = (h1 + 180) % 360;
+                            b2 = 100 - b1;
+                    }
+                    
+                    color1 = p.color(h1, s1, b1);
+                    color2 = p.color(h2, s2, b2);
+                    
+                    lastMouseX = p.mouseX;
+                    lastMouseY = p.mouseY;
+                }
+            }
+
+            function drawGradient() {
+                for (let y = 0; y < p.height; y++) {
+                    const inter = p.map(y, 0, p.height, 0, 1);
+                    const c = p.lerpColor(color1, color2, inter);
+                    p.stroke(c);
+                    p.line(0, y, p.width, y);
+                }
+            }
+
+            function updateAndDrawRipples() {
+                for (let i = rippleSystem.length - 1; i >= 0; i--) {
+                    const ripple = rippleSystem[i];
+                    ripple.radius += ripple.speed;
+                    ripple.alpha -= ripple.fade;
+                    
+                    if (ripple.alpha <= 0) {
+                        rippleSystem.splice(i, 1);
+                    } else {
+                        p.noFill();
+                        p.stroke(ripple.color[0], ripple.color[1], ripple.color[2], ripple.alpha);
+                        p.strokeWeight(2);
+                        p.circle(ripple.x, ripple.y, ripple.radius * 2);
+                    }
+                }
+            }
+
+            p.mousePressed = function() {
+                if (p.mouseButton === p.LEFT) {
+                    const rippleColor = p.color(
+                        p.hue(color1),
+                        p.saturation(color1),
+                        p.brightness(color1)
+                    );
+                    
+                    rippleSystem.push({
+                        x: p.mouseX,
+                        y: p.mouseY,
+                        radius: 10,
+                        speed: 2,
+                        alpha: 100,
+                        fade: 1,
+                        color: [p.hue(rippleColor), p.saturation(rippleColor), p.brightness(rippleColor)]
+                    });
+                }
+            };
+
+            p.keyPressed = function() {
+                if (p.key === 'm' || p.key === 'M') {
+                    currentMode = currentMode === 'vibrant' ? 'muted' : 'vibrant';
+                }
+                
+                if (p.key === 'h' || p.key === 'H') {
+                    const harmonies = ['complementary', 'analogous', 'triadic', 'monochromatic'];
+                    const currentIndex = harmonies.indexOf(colorHarmony);
+                    colorHarmony = harmonies[(currentIndex + 1) % harmonies.length];
+                }
+            };
+
+            p.windowResized = function() {
+                p.resizeCanvas(p.windowWidth, p.windowHeight);
+            };
+        };
+
+        new p5(sketch);
+    </script>
+
+              
+          
+                
+          
+              
